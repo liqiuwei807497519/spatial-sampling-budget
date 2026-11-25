@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+public_inputs/
+public_results/
+results/
+*.part
+*.tmp

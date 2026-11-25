@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "Please cite this software version when reproducing the sampling comparisons."
+title: "Spatial sampling under fixed molecular budgets"
+type: software
+version: "0.5.0"
+license: MIT
+authors:
+  - family-names: Li
+    given-names: Qiuwei
+  - family-names: Bo
+    given-names: Kaida
+  - family-names: Zhao
+    given-names: Chenhao
+  - family-names: Zhang
+    given-names: Renjie
+  - family-names: Shen
+    given-names: Cailiang

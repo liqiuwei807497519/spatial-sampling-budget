@@ -1,0 +1,5 @@
+block,zone,sites
+A1,inner,s0|s1
+A2,inner,s8|s9
+B1,outer,s4|s5
+B2,outer,s12|s13

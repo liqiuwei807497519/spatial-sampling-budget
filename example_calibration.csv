@@ -1,0 +1,5 @@
+specimen,gene,observed,source_expected,per_library_multiplier,common_multiplier
+X,A,8,20,0.4,0.35
+X,B,4,14,0.4,0.35
+Y,A,2,8,0.2,0.35
+Y,B,5,10,0.2,0.35
