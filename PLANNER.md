@@ -5,8 +5,8 @@ Open `index.html` in a modern browser. Inputs and results stay on the device. En
 With Python and the dependencies of the v0.5.0 core installed, run these commands from the repository root.
 
 ```sh
-python protocol_plan.py --input synthetic_pilot.csv --section demo --targets TargetA TargetB --budget 600 --sites 6 12 20 --area-mm2 0.04 --size-um 55 --um-per-unit 1 --draws 2000 --out demo_output
-python target_pair_lookup.py --input synthetic_pilot.csv --targets TargetA TargetB --reference-K 50 --out pair_lookup.csv
+python protocol_plan.py --input protocol_demo.csv --section demo --targets TargetA TargetB --budget 600 --sites 6 12 20 --area-mm2 0.04 --size-um 55 --um-per-unit 1 --draws 2000 --out demo_output
+python target_pair_lookup.py --input protocol_demo.csv --targets TargetA TargetB --reference-K 50 --out pair_lookup.csv
 python extraction_bias_sim.py --mode generative --out retention_model
 ```
 

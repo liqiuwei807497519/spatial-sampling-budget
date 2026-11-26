@@ -8,7 +8,7 @@ from design_atlas import METHODS,policies
 from scipy.stats import hypergeom
 
 def plan(frame,gene_a,gene_b,budget,site_counts,area,diameter,draws=2000,seed=42,um_per_unit=1.,shape='circle'):
-    if min(budget,area,diameter,draws,um_per_unit)<=0 or gene_a==gene_b:raise ValueError('Set positive resources and two distinct targets.')
+    if not np.isfinite([budget,area,diameter,draws,um_per_unit]).all() or min(budget,area,diameter,draws,um_per_unit)<=0 or gene_a==gene_b:raise ValueError('Set positive resources and two distinct targets.')
     if shape not in ['circle','square']:raise ValueError('Specify circle diameter or an axis-aligned square side.')
     if set(frame.stratum)!= {'dark','light'} or frame.site.duplicated().any():raise ValueError('Supply unique sites in both predefined optical strata.')
     if not set(frame.geometry_ok.dropna().unique())<={0,1} or frame.geometry_ok.isna().any():raise ValueError('geometry_ok must state footprint clearance (0/1) for every site.')
@@ -30,10 +30,21 @@ def plan(frame,gene_a,gene_b,budget,site_counts,area,diameter,draws=2000,seed=42
             row=dict(method=method,sites=m,K=k,total_umi=budget,footprint_mm2=footprint,draws=draws)
             if footprint>area or m>len(frame) or (method in ('stratified','stratified_dispersed') and min(dark.sum(),(~dark).sum())<m//2):
                 rows.append(dict(row,status='area or nominal capacity exceeded',placement=0.,attainment=0.,strict_dual=0.,failure_risk=1.,estimable=0));continue
-            try:sel,w,both=policies(frame,m,draws,seed+13*m+j,method)
+            draw_seed=seed+13*m+j
+            constructed=np.ones(draws,dtype=bool)
+            try:sel,w,both=policies(frame,m,draws,draw_seed,method)
             except ValueError as ex:
-                rows.append(dict(row,status=str(ex),placement=0.,attainment=0.,strict_dual=0.,failure_risk=1.,estimable=0));continue
-            fit=geo[sel].all(1)
+                if method!='inhibition':raise
+                # Preserve failed proposals in the denominator when some random orders cannot fit.
+                sel=np.zeros((draws,m),int);w=np.zeros((draws,m));both=np.zeros(draws,bool)
+                seeds=np.random.SeedSequence(draw_seed).generate_state(draws)
+                for trial,one_seed in enumerate(seeds):
+                    try:
+                        ids,weights,valid=policies(frame,m,1,int(one_seed),method)
+                        sel[trial],w[trial],both[trial]=ids[0],weights[0],valid[0]
+                    except ValueError:
+                        constructed[trial]=False
+            fit=constructed & geo[sel].all(1)
             for i in range(m-1):
                 dv=np.abs(xy[sel[:,i+1:]]-xy[sel[:,i],None,:])
                 near=(np.square(dv).sum(2)<diameter**2*(1-1e-12)) if shape=='circle' else (dv<diameter*(1-1e-12)).all(2)
