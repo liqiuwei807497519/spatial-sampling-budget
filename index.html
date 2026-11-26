@@ -14,11 +14,16 @@ details{margin:20px 0;padding:12px 0;border-top:1px solid var(--line)}summary{cu
 @media(max-width:720px){header,main,footer{padding-left:15px;padding-right:15px}.grid{grid-template-columns:1fr}.panel{padding:17px}.compact{grid-template-columns:1fr 1fr}h1{margin-top:26px}}
 </style></head><body>
 <header><b>Spatial sampling</b><a href="https://github.com/liqiuwei807497519/spatial-sampling-budget">Source code</a></header>
-<main><h1>Plan a spatial assay</h1><p class="intro">Use a pilot estimate to calculate the number of complete sampling requests needed to recover both RNA targets at least once.</p>
+<main><h1>Plan a spatial assay</h1><p class="intro">Use a pilot estimate to calculate the number of complete sampling requests needed to recover all selected RNA targets at least once.</p>
 <div class="grid"><section class="panel"><h2>Single-request success</h2>
-<label for="mode">Pilot input</label><select id="mode"><option value="direct">Measured joint detection</option><option value="stages">Placement, depth and conditional detection</option></select>
-<div id="direct"><label for="p">Requests detecting both targets (%)</label><input id="p" type="number" min="0" max="100" step="any" value="10"></div>
-<div id="stages" hidden><label for="fit">Planned requests that fit (%)</label><input id="fit" type="number" min="0" max="100" step="any" value="100"><label for="depth">Full depth among requests that fit (%)</label><input id="depth" type="number" min="0" max="100" step="any" value="60"><label for="conditional">Dual detection among full requests (%)</label><input id="conditional" type="number" min="0" max="100" step="any" value="20"></div>
+<label for="mode">Pilot input</label><select id="mode"><option value="layout">Target counts at selected sites</option><option selected value="direct">Measured joint detection</option><option value="stages">Placement, depth and conditional detection</option></select>
+<div id="direct"><label for="p">Requests detecting all selected targets (%)</label><input id="p" type="number" min="0" max="100" step="any" value="10"></div>
+<div id="layoutInput" hidden>
+<label for="targetCount">Targets in the panel</label><select id="targetCount"><option>2</option><option>3</option><option>4</option><option>5</option></select>
+<label for="panelK">UMIs per selected site</label><input id="panelK" type="number" min="1" max="1000" step="1" value="50">
+<label for="siteCounts">Pilot counts for the selected layout</label><textarea id="siteCounts" rows="4" style="width:100%;font:inherit">400,4,7,2,1,0
+360,3,6,1,0,2
+510,6,10,2,2,1</textarea><p class="help">One row per site. Enter total UMIs followed by the counts of each distinct target in order. The selector uses the first 2–5 target columns. Every selected site must reach the requested total depth. The probability is conditional on these specific sites.</p></div><div id="stages" hidden><label for="fit">Planned requests that fit (%)</label><input id="fit" type="number" min="0" max="100" step="any" value="100"><label for="depth">Full depth among requests that fit (%)</label><input id="depth" type="number" min="0" max="100" step="any" value="60"><label for="conditional">Dual detection among full requests (%)</label><input id="conditional" type="number" min="0" max="100" step="any" value="20"></div>
 <div class="pair"><div><label for="icc">Repeat correlation</label><input id="icc" type="number" min="0" max="0.99" step="any" value="0"></div><div><label for="requested">Planned requests</label><input id="requested" type="number" min="1" max="1000000000000" step="1" value="12"></div></div>
 <p class="help">Use 0 for independent requests. A positive correlation models a shared propensity for success across requests.</p>
 <p class="error" id="err" role="alert"></p></section>
@@ -30,7 +35,9 @@ details{margin:20px 0;padding:12px 0;border-top:1px solid var(--line)}summary{cu
 <div><label for="k">UMIs per site</label><input id="k" type="number" value="50" min="1" max="100000000" step="1"></div>
 <div><label for="shape">Site shape</label><select id="shape"><option value="circle">Circle</option><option value="square">Square</option></select></div><div><label id="dimLabel" for="size">Diameter (µm)</label><input id="size" type="number" min="0.001" max="1000000" step="any" value="55"></div></div><p id="area" class="summary" aria-live="polite"></p><p class="help">Area sums non-overlapping sites. Verify boundary clearance, usable tissue and distinct repeat opportunities on the registered map.</p></section>
 <details><summary>Assumptions and formulas</summary><p>Each complete request has a marginal dual-detection probability <i>p</i>. Under independence, the chance of at least one success in <i>m</i> requests is 1 − (1 − <i>p</i>)<sup>m</sup>. With positive correlation, a shared beta propensity gives a failure probability of B(α, β + <i>m</i>)/B(α, β), where α = <i>p</i>(1/ρ − 1) and β = (1 − <i>p</i>)(1/ρ − 1).</p><p>The calculator finds the smallest integer meeting each target and labels values beyond 10¹² separately from a zero per-request success rate. Set the endpoint and denominator consistently in your pilot. Request-level dual detection can pool transcripts from different sites or barcodes. Use same-barcode co-detection probabilities for a same-barcode endpoint.</p></details>
-</main><footer>Calculations run locally. Defaults are synthetic. <a href="https://doi.org/10.5281/zenodo.24527452">Core software archive</a> · <a href="./index.html" download="spatial-assay-planner.html">Save offline copy</a></footer>
+<details><summary>Compare tissue use at 80% recovery</summary><p>Compare two layouts with the same tissue area per request, using the pilot success above and the same repeat correlation for both.</p>
+<label for="baseSuccess">Comparison layout success (%)</label><input id="baseSuccess" type="number" min="0" max="100" step="any" value="5">
+<label for="requestArea">Tissue area per whole request (mm²)</label><input id="requestArea" type="number" min="0.000000001" step="any" value="0.02851"><p id="savings" aria-live="polite"></p></details></main><footer>Calculations run locally. Defaults are synthetic. <a href="https://doi.org/10.5281/zenodo.24527452">Core software archive</a> · <a href="./index.html" download="spatial-assay-planner.html">Save offline copy</a></footer>
 <script id="math">
 'use strict';
 const cap=1e12, coeff=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.3234287776531,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.984369578019572e-6,1.5056327351493116e-7];
@@ -46,6 +53,31 @@ function probability(p,r,m){return -Math.expm1(logFailure(p,r,m));}
 function repeats(p,r,t){if(p===0)return Infinity;if(p>=t)return 1;const fail=Math.log1p(-t);if(logFailure(p,r,cap)>fail)return null;let low=0,hi=1;
 while(logFailure(p,r,hi)>fail){low=hi;hi=Math.min(cap,hi*2);}
 while(low+1<hi){const m=Math.floor((low+hi)/2);if(logFailure(p,r,m)<=fail)hi=m;else low=m;}return hi;}
+function chooseInt(n,k){
+  if(k<0||k>n)return 0n;
+  k=Math.min(k,n-k);let v=1n;
+  for(let j=1;j<=k;j++)v=v*BigInt(n-k+j)/BigInt(j);
+  return v;
+}
+function panelChance(rows,M,K){
+  if(!Number.isInteger(M)||M<2||M>5||!Number.isSafeInteger(K)||K<1||K>1000||!rows.length||rows.length>48)throw Error('Use 2–5 targets, 1–48 sites and 1–1,000 UMIs per site.');
+  const checked=rows.map(row=>{
+    if(row.length<M+1||row.length>6||row.some(v=>!Number.isSafeInteger(v)||v<0||v>1000000)||row.slice(1).reduce((a,b)=>a+b,0)>row[0])throw Error('Check each row: total and nonnegative disjoint target counts, up to 1,000,000.');
+    return row.slice(0,M+1);
+  });
+  if(checked.some(row=>row[0]<K))return 0;
+  const denom=checked.reduce((s,row)=>s*chooseInt(row[0],K),1n);
+  let num=denom;
+  for(let mask=1;mask<(1<<M);mask++){
+    const ids=[];for(let j=0;j<M;j++)if(mask&(1<<j))ids.push(j+1);
+    let none=1n;
+    for(const row of checked){none*=chooseInt(row[0]-ids.reduce((s,j)=>s+row[j],0),K);if(!none)break;}
+    num+=ids.length%2?-none:none;
+  }
+  if(num===0n)return 0;
+  const exponent=denom.toString().length-num.toString().length+18;
+  return Number(num*10n**BigInt(exponent)/denom)*Math.pow(10,-exponent);
+}
 function footprint(n,depth,shape,size){return {umi:n*depth,area:n*(shape==='circle'?Math.PI*(size/2)**2:size**2)/1e6};}
 </script>
 <script>
@@ -57,11 +89,18 @@ const left=37,right=w-13,top=10,bottom=h-36,limit=Math.log10(Math.max(10,n));g.f
 for(const y of [0,.5,.8,.95]){const yy=bottom-y*(bottom-top);g.strokeStyle='#d7e1e2';g.beginPath();g.moveTo(left,yy);g.lineTo(right,yy);g.stroke();g.fillText(Math.round(y*100)+'%',0,yy+4);}
 for(let e=0;e<=Math.floor(limit);e+=Math.max(1,Math.ceil(limit/5))){const x=left+e/limit*(right-left);g.fillText(e<4?String(10**e):'1e'+e,x-3,bottom+16);}
 g.fillText('Requests (log scale)',left,bottom+32);g.strokeStyle='#00776f';g.lineWidth=2.4;g.beginPath();for(let j=0;j<=180;j++){const k=Math.max(1,Math.round(10**(j/180*limit))),x=left+Math.log10(k)/limit*(right-left),y=bottom-probability(p,r,k)*(bottom-top);if(j===0)g.moveTo(x,y);else g.lineTo(x,y);}g.stroke();}
-function render(){const stages=el('mode').value==='stages';el('stages').hidden=!stages;el('direct').hidden=stages;
-try{const p=stages?['fit','depth','conditional'].reduce((v,id)=>v*num(id,0,100)/100,1):num('p',0,100)/100,r=num('icc',0,.99),m=num('requested',1,cap,true);
-const a=repeats(p,r,.8),b=repeats(p,r,.95);el('single').textContent='Single-request dual detection: '+(100*p).toLocaleString('en-US',{maximumFractionDigits:6})+'%.';el('m80').textContent=showCount(a);el('m95').textContent=showCount(b);el('chance').textContent=(100*probability(p,r,m)).toFixed(2)+'% recovery in '+m.toLocaleString()+' requests.';el('err').textContent='';graph(p,r,Math.max(m,Number.isFinite(b)?b:100));}
+function render(){const stages=el('mode').value==='stages', layout=el('mode').value==='layout';let resultP=null;el('layoutInput').hidden=!layout;el('stages').hidden=!stages;el('direct').hidden=stages||layout;
+try{const p=layout?panelChance(el('siteCounts').value.trim().split(/\r?\n/).filter(s=>s.trim()).map(s=>s.trim().split(/[,\s]+/).map(Number)),Number(el('targetCount').value),num('panelK',1,1000,true)):stages?['fit','depth','conditional'].reduce((v,id)=>v*num(id,0,100)/100,1):num('p',0,100)/100,r=num('icc',0,.99),m=num('requested',1,cap,true);
+resultP=p;const a=repeats(p,r,.8),b=repeats(p,r,.95);el('single').textContent='All-target detection per request: '+(100*p).toLocaleString('en-US',{maximumFractionDigits:6})+'%.';el('m80').textContent=showCount(a);el('m95').textContent=showCount(b);el('chance').textContent=(100*probability(p,r,m)).toFixed(2)+'% recovery in '+m.toLocaleString()+' requests.';el('err').textContent='';graph(p,r,Math.max(m,Number.isFinite(b)?b:100));}
 catch(e){el('m80').textContent=el('m95').textContent='—';el('single').textContent=el('chance').textContent='';el('err').textContent=e.message;el('curve').width=el('curve').width;}
+try{
+ if(resultP===null)throw Error('Enter a valid pilot estimate first.');
+ const rr=num('icc',0,.99),goal=repeats(resultP,rr,.8),base=repeats(num('baseSuccess',0,100)/100,rr,.8),area=num('requestArea',1e-9,1e9);
+ if(!Number.isFinite(goal)||!Number.isFinite(base))throw Error('A finite repeat count within the supported range is required for both layouts.');
+ const gain=100*(1-goal/base);
+ el('savings').textContent='Pilot layout: '+(goal*area).toPrecision(4)+' mm² ('+showCount(goal)+' requests). Comparison: '+(base*area).toPrecision(4)+' mm² ('+showCount(base)+' requests). '+Math.abs(gain).toFixed(1)+'% '+(gain>=0?'less':'more')+' planned tissue. Assumes a fresh equal-area request on every repeat.';
+ }catch(e){el('savings').textContent=e.message;}
 el('dimLabel').textContent=el('shape').value==='circle'?'Diameter (µm)':'Side length (µm)';
 try{let v=footprint(num('sites',1,1e6,true),num('k',1,1e8,true),el('shape').value,num('size',.001,1e6));el('area').textContent=v.umi.toLocaleString()+' UMIs and '+v.area.toLocaleString('en-US',{maximumSignificantDigits:5})+' mm² per request.';}catch(e){el('area').textContent=e.message;}}
-document.querySelectorAll('input, select').forEach(x=>x.addEventListener('input',render));window.addEventListener('resize',render);render();
+document.querySelectorAll('input, select, textarea').forEach(x=>x.addEventListener('input',render));window.addEventListener('resize',render);render();
 </script></body></html>
