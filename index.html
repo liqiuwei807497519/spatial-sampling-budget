@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spatial sampling · Assay planner</title>
+<style>
+:root{color-scheme:light;--ink:#102c3a;--muted:#466271;--teal:#00776f;--line:#cfdbde;--purple:#663c91;--bg:#f4f7f5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:"Source Sans 3",Arial,sans-serif;color:var(--ink);font-size:16px;line-height:1.48}
+header,main,footer{max-width:1070px;margin:auto;padding:0 26px}header{height:68px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}header b{letter-spacing:.01em}a{color:#005c63;text-underline-offset:3px}
+h1{font-size:clamp(2rem,5vw,3.7rem);line-height:1.05;letter-spacing:-.045em;margin:38px 0 12px}h2{font-size:1.25rem;letter-spacing:-.015em;margin:0 0 14px}p{margin:6px 0 14px}.intro{max-width:730px;color:var(--muted);margin-bottom:24px}
+.grid{display:grid;grid-template-columns:.88fr 1.12fr;gap:18px}.panel{background:white;border:1px solid var(--line);border-radius:12px;padding:24px}.results{border-top:4px solid var(--teal)}
+label{display:block;font-size:.88rem;font-weight:650;margin:12px 0 4px}input,select{font:inherit;background:#fff;border:1px solid #8ca1a9;border-radius:5px;color:var(--ink);padding:7px 9px;width:100%;min-height:40px}input:focus,select:focus,a:focus,summary:focus{outline:3px solid #68c6bc;outline-offset:2px}
+small,.help{color:var(--muted);font-size:.85rem}.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 20px}.stat{border-left:3px solid var(--teal);padding:0 9px}.stat:last-child{border-color:var(--purple)}.stat strong{font-size:clamp(1.6rem,4vw,2.6rem);line-height:1.1;color:var(--teal);display:block;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.stat:last-child strong{color:var(--purple)}.stat span{font-size:.84rem;color:var(--muted)}
+[hidden]{display:none!important}canvas{width:100%;height:190px;display:block}.error{color:#9d321f;font-weight:bold}.budget{margin-top:18px}.compact{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.summary{margin-top:14px;font-size:1.05rem;font-weight:bold}
+details{margin:20px 0;padding:12px 0;border-top:1px solid var(--line)}summary{cursor:pointer;font-weight:bold}footer{padding-top:10px;padding-bottom:28px;color:var(--muted);font-size:.86rem}
+@media(max-width:720px){header,main,footer{padding-left:15px;padding-right:15px}.grid{grid-template-columns:1fr}.panel{padding:17px}.compact{grid-template-columns:1fr 1fr}h1{margin-top:26px}}
+</style></head><body>
+<header><b>Spatial sampling</b><a href="https://github.com/liqiuwei807497519/spatial-sampling-budget">Source code</a></header>
+<main><h1>Plan a spatial assay</h1><p class="intro">Use a pilot estimate to calculate the number of complete sampling requests needed to recover both RNA targets at least once.</p>
+<div class="grid"><section class="panel"><h2>Single-request success</h2>
+<label for="mode">Pilot input</label><select id="mode"><option value="direct">Measured joint detection</option><option value="stages">Placement, depth and conditional detection</option></select>
+<div id="direct"><label for="p">Requests detecting both targets (%)</label><input id="p" type="number" min="0" max="100" step="any" value="10"></div>
+<div id="stages" hidden><label for="fit">Planned requests that fit (%)</label><input id="fit" type="number" min="0" max="100" step="any" value="100"><label for="depth">Full depth among requests that fit (%)</label><input id="depth" type="number" min="0" max="100" step="any" value="60"><label for="conditional">Dual detection among full requests (%)</label><input id="conditional" type="number" min="0" max="100" step="any" value="20"></div>
+<div class="pair"><div><label for="icc">Repeat correlation</label><input id="icc" type="number" min="0" max="0.99" step="any" value="0"></div><div><label for="requested">Planned requests</label><input id="requested" type="number" min="1" max="1000000000000" step="1" value="12"></div></div>
+<p class="help">Use 0 for independent requests. A positive correlation models a shared propensity for success across requests.</p>
+<p class="error" id="err" role="alert"></p></section>
+<section class="panel results" aria-live="polite"><h2>Repeat requirements</h2><p id="single"></p>
+<div class="stats"><div class="stat"><strong id="m80">—</strong><span>requests for 80% recovery</span></div><div class="stat"><strong id="m95">—</strong><span>requests for 95% recovery</span></div></div>
+<canvas id="curve" aria-label="Modelled probability of at least one successful request versus number of requests on a logarithmic horizontal axis" role="img"></canvas><p class="summary" id="chance"></p></section></div>
+<section class="panel budget"><h2>Molecular budget and sampled area</h2><div class="compact">
+<div><label for="sites">Sites per request</label><input id="sites" type="number" value="12" min="1" max="1000000" step="1"></div>
+<div><label for="k">UMIs per site</label><input id="k" type="number" value="50" min="1" max="100000000" step="1"></div>
+<div><label for="shape">Site shape</label><select id="shape"><option value="circle">Circle</option><option value="square">Square</option></select></div><div><label id="dimLabel" for="size">Diameter (µm)</label><input id="size" type="number" min="0.001" max="1000000" step="any" value="55"></div></div><p id="area" class="summary" aria-live="polite"></p><p class="help">Area sums non-overlapping sites. Verify boundary clearance, usable tissue and distinct repeat opportunities on the registered map.</p></section>
+<details><summary>Assumptions and formulas</summary><p>Each complete request has a marginal dual-detection probability <i>p</i>. Under independence, the chance of at least one success in <i>m</i> requests is 1 − (1 − <i>p</i>)<sup>m</sup>. With positive correlation, a shared beta propensity gives a failure probability of B(α, β + <i>m</i>)/B(α, β), where α = <i>p</i>(1/ρ − 1) and β = (1 − <i>p</i>)(1/ρ − 1).</p><p>The calculator finds the smallest integer meeting each target and labels values beyond 10¹² separately from a zero per-request success rate. Set the endpoint and denominator consistently in your pilot. Request-level dual detection can pool transcripts from different sites or barcodes. Use same-barcode co-detection probabilities for a same-barcode endpoint.</p></details>
+</main><footer>Calculations run locally. Defaults are synthetic. <a href="https://doi.org/10.5281/zenodo.24527452">Core software archive</a> · <a href="./index.html" download="spatial-assay-planner.html">Save offline copy</a></footer>
+<script id="math">
+'use strict';
+const cap=1e12, coeff=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.3234287776531,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.984369578019572e-6,1.5056327351493116e-7];
+function series(x){let s=coeff[0];for(let i=1;i<coeff.length;i++)s+=coeff[i]/(x-1+i);return s;}
+function gammaShift(x,d){if(x<0.5)return gammaShift(x+1,d)-Math.log1p(d/x);const t=x+6.5;return (x-.5)*Math.log1p(d/t)+d*Math.log(t+d)-d+Math.log(series(x+d)/series(x));}
+function logFailure(p,r,m){if(p===0)return 0;if(p===1)return -Infinity;if(r<1e-26)return m*Math.log1p(-p);
+const n=(1-r)/r,a=p*n,b=(1-p)*n;
+// A direct finite product is stable for ordinary small repeat counts, including tiny ICC.
+if(m<=2048){let log=0;for(let j=0;j<m;j++)log+=Math.log1p(-a/(n+j));return log;}
+if(m/n<1e-5 && n>1e10){const u=m*(m-1)/2,v=m*(m-1)*(2*m-1)/6;return m*Math.log1p(-p)+(1/b-1/n)*u-.5*(1/(b*b)-1/(n*n))*v;}
+return Math.min(0,m<a?gammaShift(b,m)-gammaShift(n,m):gammaShift(b,a)-gammaShift(b+m,a));}
+function probability(p,r,m){return -Math.expm1(logFailure(p,r,m));}
+function repeats(p,r,t){if(p===0)return Infinity;if(p>=t)return 1;const fail=Math.log1p(-t);if(logFailure(p,r,cap)>fail)return null;let low=0,hi=1;
+while(logFailure(p,r,hi)>fail){low=hi;hi=Math.min(cap,hi*2);}
+while(low+1<hi){const m=Math.floor((low+hi)/2);if(logFailure(p,r,m)<=fail)hi=m;else low=m;}return hi;}
+function footprint(n,depth,shape,size){return {umi:n*depth,area:n*(shape==='circle'?Math.PI*(size/2)**2:size**2)/1e6};}
+</script>
+<script>
+const el=id=>document.getElementById(id);
+function num(id,min,max,integer=false){let inp=el(id),v=inp.valueAsNumber;if(!Number.isFinite(v)||v<min||v>max||(integer&&!Number.isInteger(v)))throw Error('Check '+document.querySelector('label[for="'+id+'"]').textContent+' using the displayed limits.');return v;}
+function showCount(x){return x===Infinity?'No finite count':x===null?'>10¹²':x.toLocaleString('en-US');}
+function graph(p,r,n){const c=el('curve'),w=Math.max(260,c.clientWidth),h=190,d=window.devicePixelRatio||1;c.width=Math.round(w*d);c.height=Math.round(h*d);const g=c.getContext('2d');g.scale(d,d);
+const left=37,right=w-13,top=10,bottom=h-36,limit=Math.log10(Math.max(10,n));g.font='12px Arial';g.fillStyle='#466271';g.lineWidth=1;
+for(const y of [0,.5,.8,.95]){const yy=bottom-y*(bottom-top);g.strokeStyle='#d7e1e2';g.beginPath();g.moveTo(left,yy);g.lineTo(right,yy);g.stroke();g.fillText(Math.round(y*100)+'%',0,yy+4);}
+for(let e=0;e<=Math.floor(limit);e+=Math.max(1,Math.ceil(limit/5))){const x=left+e/limit*(right-left);g.fillText(e<4?String(10**e):'1e'+e,x-3,bottom+16);}
+g.fillText('Requests (log scale)',left,bottom+32);g.strokeStyle='#00776f';g.lineWidth=2.4;g.beginPath();for(let j=0;j<=180;j++){const k=Math.max(1,Math.round(10**(j/180*limit))),x=left+Math.log10(k)/limit*(right-left),y=bottom-probability(p,r,k)*(bottom-top);if(j===0)g.moveTo(x,y);else g.lineTo(x,y);}g.stroke();}
+function render(){const stages=el('mode').value==='stages';el('stages').hidden=!stages;el('direct').hidden=stages;
+try{const p=stages?['fit','depth','conditional'].reduce((v,id)=>v*num(id,0,100)/100,1):num('p',0,100)/100,r=num('icc',0,.99),m=num('requested',1,cap,true);
+const a=repeats(p,r,.8),b=repeats(p,r,.95);el('single').textContent='Single-request dual detection: '+(100*p).toLocaleString('en-US',{maximumFractionDigits:6})+'%.';el('m80').textContent=showCount(a);el('m95').textContent=showCount(b);el('chance').textContent=(100*probability(p,r,m)).toFixed(2)+'% recovery in '+m.toLocaleString()+' requests.';el('err').textContent='';graph(p,r,Math.max(m,Number.isFinite(b)?b:100));}
+catch(e){el('m80').textContent=el('m95').textContent='—';el('single').textContent=el('chance').textContent='';el('err').textContent=e.message;el('curve').width=el('curve').width;}
+el('dimLabel').textContent=el('shape').value==='circle'?'Diameter (µm)':'Side length (µm)';
+try{let v=footprint(num('sites',1,1e6,true),num('k',1,1e8,true),el('shape').value,num('size',.001,1e6));el('area').textContent=v.umi.toLocaleString()+' UMIs and '+v.area.toLocaleString('en-US',{maximumSignificantDigits:5})+' mm² per request.';}catch(e){el('area').textContent=e.message;}}
+document.querySelectorAll('input, select').forEach(x=>x.addEventListener('input',render));window.addEventListener('resize',render);render();
+</script></body></html>
